@@ -1,0 +1,28 @@
+{
+  "name": "html-to-elementor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Convertit une page HTML en modèle Elementor importable (containers, styles, images).",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "html-to-elementor": "./src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "serve": "node src/server.js",
+    "convert": "node src/cli.js"
+  },
+  "files": [
+    "src/",
+    "data/",
+    "validation/",
+    "README.md"
+  ],
+  "dependencies": {
+    "cheerio": "^1.0.0"
+  }
+}

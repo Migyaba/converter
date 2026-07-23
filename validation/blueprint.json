@@ -1,0 +1,31 @@
+{
+    "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+    "landingPage": "/?page_id=2",
+    "preferredVersions": { "php": "8.0", "wp": "latest" },
+    "features": { "networking": true },
+    "extraLibraries": [ "wp-cli" ],
+    "steps": [
+        { "step": "login", "username": "admin", "password": "password" },
+        {
+            "step": "defineWpConfigConsts",
+            "consts": {
+                "WP_DEBUG": true,
+                "WP_DEBUG_DISPLAY": true,
+                "SCRIPT_DEBUG": true,
+                "ELEMENTOR_SHOW_HIDDEN_EXPERIMENTS": true
+            }
+        },
+        {
+            "step": "installPlugin",
+            "pluginData": { "resource": "wordpress.org/plugins", "slug": "elementor" }
+        },
+        {
+            "step": "installTheme",
+            "themeData": { "resource": "wordpress.org/themes", "slug": "hello-elementor" }
+        },
+        { "step": "activateTheme", "themeFolderName": "hello-elementor" },
+        { "step": "wp-cli", "command": "wp option update elementor_onboarded 1" },
+        { "step": "wp-cli", "command": "wp elementor experiments activate container" },
+        { "step": "wp-cli", "command": "wp eval-file /wordpress/val/import.php" }
+    ]
+}
