@@ -1,6 +1,13 @@
 # Dépendances
 node_modules/
 
+# Base SQLite SaaS
+storage/*
+!storage/.gitkeep
+*.db
+*.db-shm
+*.db-wal
+
 # Sorties de conversion (CLI)
 assets/*
 !assets/.gitkeep

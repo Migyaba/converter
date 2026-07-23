@@ -1,9 +1,11 @@
 # HTML → Elementor
 
-Convertisseur Node.js qui transforme une page HTML en **modèle Elementor** importable.
+Mini-SaaS Node.js qui transforme une page HTML en **modèle Elementor** importable.
 
 Entrée : un fichier `.html` (CSS inline / `<style>`, images en base64, structure libre).  
 Sortie : un JSON au format template Elementor (`containers` flex/grid + widgets classiques), avec styles et images extraites.
+
+Comptes utilisateurs, quotas mensuels, historique des conversions et **espace admin**.
 
 ---
 
@@ -14,14 +16,16 @@ Sortie : un JSON au format template Elementor (`containers` flex/grid + widgets 
 - Breakpoints responsive (`tablet` / `mobile`) à partir des `@media (max-width: …)`
 - Extraction des images `data:` URI vers de vrais fichiers
 - Validation des contrôles contre une knowledge base Elementor embarquée
-- **UI web** : upload → téléchargement d’un `.zip`
-- **CLI** pour scripts et CI
+- **Auth** : inscription, connexion, sessions cookie HttpOnly
+- **Quotas** mensuels par compte
+- **Admin** : utilisateurs, activation, rôles, quotas, stats
+- **CLI** pour scripts et CI (sans auth)
 
 ---
 
 ## Prérequis
 
-- [Node.js](https://nodejs.org/) **18+**
+- [Node.js](https://nodejs.org/) **22+** (SQLite natif `node:sqlite`)
 - WordPress + Elementor avec **Flexbox Container** activé (pour l’import)
 
 ---
@@ -30,122 +34,120 @@ Sortie : un JSON au format template Elementor (`containers` flex/grid + widgets 
 
 ```bash
 git clone <url-du-repo>.git
-cd converter   # si le dépôt est le monorepo parent
+cd converter
 npm install
+cp .env.example .env   # optionnel : éditer les variables
+```
+
+Créer le premier admin au démarrage :
+
+```bash
+export BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+export BOOTSTRAP_ADMIN_PASSWORD='choisissez-un-mot-de-passe-fort'
+npm start
 ```
 
 ---
 
-## Démarrage rapide (UI)
+## Démarrage (SaaS)
 
 ```bash
 npm start
 ```
 
-Ouvrir **http://127.0.0.1:4599**
+Ouvrir **http://127.0.0.1:4599** — landing publique. L’outil est sur **/app** après connexion.
 
-1. Déposer un fichier HTML  
-2. (Optionnel) indiquer l’URL publique où seront hébergées les images  
-3. Convertir → télécharger le `.zip`
+| Route | Accès | Rôle |
+|-------|--------|------|
+| `/` | Public | Landing / tunnel de vente |
+| `/register` | Public* | Créer un compte |
+| `/login` | Public | Connexion |
+| `/app` | Connecté | Convertir + historique |
+| `/admin` | Admin | Gestion utilisateurs & stats |
+| `POST /convert` | Connecté | API conversion (ZIP) |
+| `GET /health` | Public | Healthcheck |
 
-Le zip contient :
+\* Désactiver les inscriptions : `REGISTRATION_OPEN=0`
 
-| Fichier | Contenu |
-|---------|---------|
-| `*.elementor.json` | Modèle à importer dans Elementor |
-| `*.style-report.json` | Diagnostic (valeurs rejetées, trous) |
-| `assets/` | Images extraites |
-| `README.txt` | Rappel d’import |
+### Parcours utilisateur
 
-Scripts équivalents : `npm run serve`, `npm run dev`.
+1. Créer un compte / se connecter  
+2. Déposer un HTML  
+3. (Optionnel) indiquer l’URL publique des images  
+4. Convertir → télécharger le `.zip`  
+5. Suivre le quota mensuel dans la sidebar  
 
----
+### Parcours admin
 
-## Ligne de commande
-
-```bash
-# Sortie à côté du HTML source
-npm run convert -- page.html
-
-# Fichier de sortie explicite
-npm run convert -- page.html out.elementor.json
-
-# Réécrire les URLs d’images vers un dossier public
-npm run convert -- page.html out.elementor.json \
-  --assets-base=https://exemple.com/wp-content/uploads/page
-```
-
-Sans `--assets-base`, les images restent en base64 dans le JSON. Elementor les remplace souvent par un placeholder à l’import : hébergez `assets/`, puis reconvertissez avec l’URL publique.
-
-Binaire disponible après install locale :
-
-```bash
-npx html-to-elementor page.html
-```
+1. Se connecter avec le compte bootstrap  
+2. Ouvrir **Admin**  
+3. Ajuster les quotas, activer/désactiver des comptes, promouvoir des admins  
 
 ---
 
-## Import dans WordPress
+## Configuration
 
-1. Elementor → activer **Flexbox Container**
-2. **Modèles → Modèles enregistrés → Importer des modèles** → choisir le `.elementor.json`
-3. Insérer le modèle dans une page
-4. Si des images ont été extraites : uploader le dossier `assets/` à l’URL utilisée (`--assets-base` ou champ de l’UI)
-5. Polices Google : Elementor → Réglages → activer Google Fonts, puis **Outils → Régénérer le CSS & les données**
-
----
-
-## Configuration serveur
-
-Variables d’environnement (voir `.env.example`) :
+Voir `.env.example` :
 
 | Variable | Défaut | Description |
 |----------|--------|-------------|
 | `PORT` | `4599` | Port HTTP |
 | `HOST` | `127.0.0.1` | Interface d’écoute |
 | `MAX_BODY_MB` | `200` | Taille max du HTML uploadé |
+| `BOOTSTRAP_ADMIN_EMAIL` | — | E-mail du 1er admin |
+| `BOOTSTRAP_ADMIN_PASSWORD` | — | Mot de passe du 1er admin |
+| `REGISTRATION_OPEN` | `1` | Inscriptions publiques |
+| `FREE_MONTHLY_QUOTA` | `3` | Quota plan Free |
+| `STANDARD_MONTHLY_QUOTA` | `50` | Quota plan Standard |
+| `PRO_MONTHLY_QUOTA` | `500` | Quota plan Pro |
+| `SESSION_DAYS` | `14` | Durée de session |
+| `COOKIE_SECURE` | — | `1` en HTTPS |
+| `DB_PATH` | `storage/app.db` | Fichier SQLite |
 
 ```bash
-# Local
-npm start
-
 # Derrière Nginx / Caddy
-HOST=0.0.0.0 PORT=4599 npm start
+HOST=0.0.0.0 PORT=4599 COOKIE_SECURE=1 NODE_ENV=production npm start
 ```
 
-Healthcheck : `GET /health` → `{ "ok": true }`
-
-> Le serveur **n’authentifie pas** les requêtes. Ne pas l’exposer directement sur Internet sans reverse-proxy, HTTPS et contrôle d’accès.
+> Mettez HTTPS + reverse-proxy. Les cookies de session sont HttpOnly / SameSite=Lax ; activez `COOKIE_SECURE=1` en production.
 
 ---
 
-## API
+## Ligne de commande
 
-`POST /convert?name=<slug>&base=<url-images-optionnelle>`
+La CLI reste disponible **sans** authentification (usage local / CI) :
 
-- Corps : HTML brut (`text/html` ou `text/plain`)
-- Réponse : archive ZIP (`application/zip`)
-- Stats : en-tête `X-Convert-Stats` (JSON)
+```bash
+npm run convert -- page.html
+npm run convert -- page.html out.elementor.json \
+  --assets-base=https://exemple.com/wp-content/uploads/page
+```
 
 ---
 
-## Structure du projet
+## Import WordPress
+
+1. Elementor → activer **Flexbox Container**
+2. **Modèles → Modèles enregistrés → Importer des modèles** → `.elementor.json`
+3. Uploader `assets/` à l’URL indiquée si des images ont été extraites
+4. Polices Google : Elementor → Réglages → Google Fonts, puis **Régénérer le CSS**
+
+---
+
+## Structure
 
 ```
 converter/
-├── data/                 # Knowledge base widgets / controls Elementor
+├── data/                 # Knowledge base Elementor
+├── storage/              # SQLite (gitignore) — users, sessions, conversions
 ├── src/
+│   ├── server.js         # SaaS HTTP (auth + admin + convert)
+│   ├── auth.js           # Sessions, mots de passe (scrypt), quotas
+│   ├── db.js             # Schéma SQLite
+│   ├── web/ui.js         # Pages login / app / admin
 │   ├── cli.js            # CLI
-│   ├── server.js         # UI + API
-│   ├── convert.js        # Pipeline principal
-│   ├── mapper.js         # HTML → arbre Elementor
-│   ├── style-map.js      # CSS → contrôles
-│   ├── validate.js       # Validation KB
-│   ├── assets.js         # Extraction images base64
-│   ├── zip.js            # Écriture ZIP (sans dépendance)
-│   ├── fallback.js       # Extension cas ambigus (inerte par défaut)
-│   └── css/              # Parseur CSS, cascade, breakpoints
-├── validation/           # Harness WP Playground (optionnel)
+│   ├── convert.js        # Pipeline de conversion
+│   └── …
 ├── .env.example
 └── package.json
 ```
@@ -155,10 +157,9 @@ converter/
 ## Limites connues
 
 - Widgets classiques uniquement (pas les atomic widgets Elementor)
-- Pas d’héritage CSS à l’intérieur des breakpoints
+- Pas encore de reset password / e-mail / OAuth / facturation Stripe
 - Gradients complexes, `box-shadow`, `transform` : couverture partielle
-- Formulaires / galeries natives Elementor non mappés (souvent remplacés par containers + images)
-- Les sélecteurs avec pseudo-classes d’état (`:hover`, `::before`) sont ignorés
+- `node:sqlite` est encore marqué experimental dans Node.js
 
 ---
 

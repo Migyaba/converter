@@ -2,10 +2,10 @@
   "name": "html-to-elementor",
   "version": "0.1.0",
   "private": true,
-  "description": "Convertit une page HTML en modèle Elementor importable (containers, styles, images).",
+  "description": "Mini-SaaS : convertit une page HTML en modèle Elementor (auth, quotas, admin).",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "bin": {
     "html-to-elementor": "./src/cli.js"
